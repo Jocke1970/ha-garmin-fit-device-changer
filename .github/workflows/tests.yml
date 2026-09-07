@@ -16,3 +16,5 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
         run: python -m compileall -q custom_components/garmin_fit_device_changer
+      - name: Check Lovelace card JavaScript syntax
+        run: node --check custom_components/garmin_fit_device_changer/www/garmin-fit-device-changer-card.js
