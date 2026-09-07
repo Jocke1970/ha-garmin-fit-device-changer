@@ -13,9 +13,15 @@ from aiohttp import web
 from homeassistant.components.http import KEY_HASS, HomeAssistantView
 from homeassistant.core import HomeAssistant
 
+from .catalog import (
+    get_device_definition,
+    parse_serial_number,
+    parse_software_version,
+    public_device_catalog,
+)
 from .const import DATA_STORE, DOMAIN, MAX_FIT_FILE_SIZE
-from .patcher import FitPatchError, extract_creator_identity, patch_fit_bytes
-from .storage import ProfileStore
+from .patcher import CreatorIdentity, FitPatchError, extract_creator_identity, patch_fit_bytes
+from .storage import DeviceProfile, ProfileStore
 
 
 def _store(hass: HomeAssistant) -> ProfileStore:
@@ -54,8 +60,23 @@ def _safe_output_name(filename: Any, label: str) -> str:
     return f"{stem}_{device_slug or 'patched'}{suffix}"
 
 
+def _public_payload(store: ProfileStore) -> dict[str, Any]:
+    """Return profile state together with Garmin's built-in manual catalog."""
+    return {
+        **store.public_payload(),
+        "device_catalog": public_device_catalog(),
+    }
+
+
+def _profile_response(store: ProfileStore, profile: DeviceProfile) -> dict[str, Any]:
+    return {
+        "profile": profile.to_public(profile.profile_id == store.default_profile_id),
+        **_public_payload(store),
+    }
+
+
 class ProfilesView(HomeAssistantView):
-    """List locally saved creator profiles."""
+    """List locally saved creator profiles and manual Garmin model data."""
 
     url = "/api/fit_device_patcher/profiles"
     name = "api:fit_device_patcher:profiles"
@@ -63,7 +84,7 @@ class ProfilesView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app[KEY_HASS]
-        return self.json(_store(hass).public_payload())
+        return self.json(_public_payload(_store(hass)))
 
 
 class ImportProfileView(HomeAssistantView):
@@ -80,18 +101,63 @@ class ImportProfileView(HomeAssistantView):
             raw = _decode_fit(payload.get("content_base64"))
             identity = await hass.async_add_executor_job(extract_creator_identity, raw)
             label = str(payload.get("label") or identity.default_label).strip()
-            profile = await _store(hass).async_upsert(identity, label)
+            store = _store(hass)
+            profile = await store.async_upsert(
+                identity,
+                label,
+                source="reference",
+                identity_mode="full",
+            )
         except (FitPatchError, ValueError, TypeError) as exc:
             return _json_error(self, str(exc), HTTPStatus.BAD_REQUEST)
 
-        return self.json(
-            {
-                "profile": profile.to_public(
-                    profile.profile_id == _store(hass).default_profile_id
-                ),
-                **_store(hass).public_payload(),
-            }
-        )
+        return self.json(_profile_response(store, profile))
+
+
+class ManualProfileView(HomeAssistantView):
+    """Create a profile from Garmin model data, optionally with full identity."""
+
+    url = "/api/fit_device_patcher/profiles/manual"
+    name = "api:fit_device_patcher:profiles:manual"
+    requires_auth = True
+
+    async def post(self, request: web.Request) -> web.Response:
+        hass: HomeAssistant = request.app[KEY_HASS]
+        try:
+            payload = await request.json()
+            device_key = str(payload.get("device_key") or "").strip()
+            definition = get_device_definition(device_key)
+            if definition is None:
+                raise ValueError("Unknown Garmin device model.")
+
+            identity_mode = str(payload.get("identity_mode") or "basic").strip().lower()
+            if identity_mode not in ("basic", "full"):
+                raise ValueError("Identity mode must be 'basic' or 'full'.")
+
+            serial_number = None
+            software_version = None
+            if identity_mode == "full":
+                serial_number = parse_serial_number(payload.get("serial_number"))
+                software_version = parse_software_version(payload.get("software_version"))
+
+            identity = CreatorIdentity(
+                manufacturer=definition.manufacturer,
+                product=definition.product,
+                serial_number=serial_number,
+                software_version=software_version,
+            )
+            label = str(payload.get("label") or definition.label).strip()
+            store = _store(hass)
+            profile = await store.async_upsert(
+                identity,
+                label,
+                source="manual",
+                identity_mode=identity_mode,
+            )
+        except (ValueError, TypeError) as exc:
+            return _json_error(self, str(exc), HTTPStatus.BAD_REQUEST)
+
+        return self.json(_profile_response(store, profile))
 
 
 class DefaultProfileView(HomeAssistantView):
@@ -105,9 +171,10 @@ class DefaultProfileView(HomeAssistantView):
         hass: HomeAssistant = request.app[KEY_HASS]
         payload = await request.json()
         profile_id = str(payload.get("profile_id") or "")
-        if not await _store(hass).async_set_default(profile_id):
+        store = _store(hass)
+        if not await store.async_set_default(profile_id):
             return _json_error(self, "Unknown profile.", HTTPStatus.NOT_FOUND)
-        return self.json(_store(hass).public_payload())
+        return self.json(_public_payload(store))
 
 
 class DeleteProfileView(HomeAssistantView):
@@ -121,9 +188,10 @@ class DeleteProfileView(HomeAssistantView):
         hass: HomeAssistant = request.app[KEY_HASS]
         payload = await request.json()
         profile_id = str(payload.get("profile_id") or "")
-        if not await _store(hass).async_delete(profile_id):
+        store = _store(hass)
+        if not await store.async_delete(profile_id):
             return _json_error(self, "Unknown profile.", HTTPStatus.NOT_FOUND)
-        return self.json(_store(hass).public_payload())
+        return self.json(_public_payload(store))
 
 
 class PatchView(HomeAssistantView):
@@ -138,7 +206,8 @@ class PatchView(HomeAssistantView):
         try:
             payload = await request.json()
             profile_id = str(payload.get("profile_id") or "")
-            profile = _store(hass).get(profile_id)
+            store = _store(hass)
+            profile = store.get(profile_id)
             if profile is None:
                 return _json_error(self, "Unknown target profile.", HTTPStatus.NOT_FOUND)
 
@@ -156,7 +225,7 @@ class PatchView(HomeAssistantView):
                 "filename": _safe_output_name(payload.get("filename"), profile.label),
                 "content_base64": base64.b64encode(patched).decode("ascii"),
                 "profile": profile.to_public(
-                    profile.profile_id == _store(hass).default_profile_id
+                    profile.profile_id == store.default_profile_id
                 ),
                 "changes": [change.as_public_dict() for change in changes],
                 "verified": True,
@@ -168,6 +237,7 @@ def register_api_views(hass: HomeAssistant) -> None:
     """Register authenticated integration API endpoints."""
     hass.http.register_view(ProfilesView)
     hass.http.register_view(ImportProfileView)
+    hass.http.register_view(ManualProfileView)
     hass.http.register_view(DefaultProfileView)
     hass.http.register_view(DeleteProfileView)
     hass.http.register_view(PatchView)
