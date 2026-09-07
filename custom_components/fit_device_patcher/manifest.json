@@ -1,11 +1,11 @@
 {
   "domain": "fit_device_patcher",
   "name": "FIT Device Patcher",
-  "codeowners": ["@jocke1970"],
+  "codeowners": ["@Jocke1970"],
   "config_flow": true,
-  "documentation": "https://github.com/jocke1970/ha-fit-device-patcher",
+  "dependencies": ["http"],
+  "documentation": "https://github.com/Jocke1970/ha-fit-device-patcher",
   "integration_type": "service",
-  "iot_class": "local_push",
   "requirements": [],
   "version": "0.1.0"
 }
