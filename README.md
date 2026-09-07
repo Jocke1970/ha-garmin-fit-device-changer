@@ -90,6 +90,7 @@ M1 refuses to patch when:
 
 - the FIT header or file CRC is invalid
 - the file is chained / contains extra FIT data after its CRC
+- compressed-timestamp FIT records are present (not supported safely in M1)
 - required `file_id.manufacturer`, `file_id.product`, or `file_id.serial_number` fields are missing
 - an expected creator field has an unsupported byte size
 - byte-level verification finds any change outside the intended creator fields and trailing CRC
