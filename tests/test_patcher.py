@@ -107,6 +107,17 @@ class FitDevicePatcherTests(unittest.TestCase):
         diffs = {i for i, (a, b) in enumerate(zip(original, patched)) if a != b}
         self.assertTrue(diffs <= allowed)
 
+    def test_rejects_compressed_timestamp_records(self):
+        original = bytearray(make_fit(331, 3570, 3313379353, 29, include_creator_device=False))
+        # The first data record is a definition at offset 14. Change the first
+        # subsequent data header (offset 35) into a compressed timestamp header.
+        layout = parse_layout(original)
+        original[35] = 0x80
+        # Recalculate file CRC so validation reaches the record parser.
+        struct.pack_into("<H", original, layout.file_crc_offset, fit_crc(original, 0, layout.file_crc_offset))
+        with self.assertRaises(patcher.FitPatchError):
+            extract_creator_identity(bytes(original))
+
     def test_no_message_insertion_when_device_info_missing(self):
         original = make_fit(331, 3570, 3313379353, 29, include_creator_device=False)
         identity = CreatorIdentity(1, 4375, 3511528293, 2609)

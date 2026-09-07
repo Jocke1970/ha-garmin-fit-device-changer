@@ -300,10 +300,13 @@ def iter_data_records(
         pos += 1
 
         if record_header & 0x80:
-            # Compressed timestamp data header: local message number is bits 5-6.
-            local_num = (record_header >> 5) & 0x03
-            is_definition = False
-            has_developer_data = False
+            # Compressed timestamp records require special timestamp-field handling.
+            # M1 refuses them rather than guessing message lengths and risking a
+            # non-surgical patch.
+            raise FitPatchError(
+                "Compressed-timestamp FIT messages are not supported yet; "
+                "refusing to patch this file safely."
+            )
         else:
             # Normal header: bit 6 definition, bit 5 developer fields, bits 0-3 local num.
             local_num = record_header & 0x0F
