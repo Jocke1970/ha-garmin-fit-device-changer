@@ -15,6 +15,13 @@ class DeviceCatalogTests(unittest.TestCase):
         self.assertEqual(catalog.get_device_definition("edge_1040").product, 3843)
         self.assertEqual(catalog.get_device_definition("fenix_7_pro").product, 4375)
 
+    def test_parse_product_id(self):
+        self.assertEqual(catalog.parse_product_id("4634"), 4634)
+        with self.assertRaises(ValueError):
+            catalog.parse_product_id("46AB")
+        with self.assertRaises(ValueError):
+            catalog.parse_product_id("65536")
+
     def test_parse_serial_number(self):
         self.assertEqual(catalog.parse_serial_number("3417487351"), 3417487351)
         with self.assertRaises(ValueError):
