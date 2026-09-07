@@ -9,7 +9,7 @@ from typing import Any, Optional
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import STORAGE_KEY, STORAGE_VERSION
+from .const import LEGACY_STORAGE_KEY, STORAGE_KEY, STORAGE_VERSION
 from .patcher import CreatorIdentity, format_software_version, mask_serial
 
 
@@ -109,6 +109,11 @@ class ProfileStore:
             STORAGE_VERSION,
             STORAGE_KEY,
         )
+        self._legacy_store: Store[dict[str, Any]] = Store(
+            hass,
+            STORAGE_VERSION,
+            LEGACY_STORAGE_KEY,
+        )
         self._profiles: dict[str, DeviceProfile] = {}
         self._default_profile_id: Optional[str] = None
         self._loaded = False
@@ -121,7 +126,14 @@ class ProfileStore:
         """Load saved profiles once."""
         if self._loaded:
             return
-        data = await self._store.async_load() or {}
+        data = await self._store.async_load()
+        migrated_legacy = False
+        if not data:
+            legacy_data = await self._legacy_store.async_load()
+            if legacy_data:
+                data = legacy_data
+                migrated_legacy = True
+        data = data or {}
         for raw_profile in data.get("profiles", []):
             profile = DeviceProfile.from_storage(raw_profile)
             self._profiles[profile.profile_id] = profile
@@ -129,6 +141,8 @@ class ProfileStore:
         if default_profile_id in self._profiles:
             self._default_profile_id = default_profile_id
         self._loaded = True
+        if migrated_legacy:
+            await self._async_save()
 
     async def _async_save(self) -> None:
         await self._store.async_save(

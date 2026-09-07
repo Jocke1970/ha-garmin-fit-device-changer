@@ -1,4 +1,4 @@
-"""Authenticated HTTP API for FIT Device Patcher."""
+"""Authenticated HTTP API for Garmin FIT Device Changer."""
 
 from __future__ import annotations
 
@@ -78,8 +78,8 @@ def _profile_response(store: ProfileStore, profile: DeviceProfile) -> dict[str, 
 class ProfilesView(HomeAssistantView):
     """List locally saved creator profiles and manual Garmin model data."""
 
-    url = "/api/fit_device_patcher/profiles"
-    name = "api:fit_device_patcher:profiles"
+    url = "/api/garmin_fit_device_changer/profiles"
+    name = "api:garmin_fit_device_changer:profiles"
     requires_auth = True
 
     async def get(self, request: web.Request) -> web.Response:
@@ -90,8 +90,8 @@ class ProfilesView(HomeAssistantView):
 class ImportProfileView(HomeAssistantView):
     """Import creator identity from a genuine reference FIT file."""
 
-    url = "/api/fit_device_patcher/profiles/import"
-    name = "api:fit_device_patcher:profiles:import"
+    url = "/api/garmin_fit_device_changer/profiles/import"
+    name = "api:garmin_fit_device_changer:profiles:import"
     requires_auth = True
 
     async def post(self, request: web.Request) -> web.Response:
@@ -117,8 +117,8 @@ class ImportProfileView(HomeAssistantView):
 class ManualProfileView(HomeAssistantView):
     """Create a profile from Garmin model data, optionally with full identity."""
 
-    url = "/api/fit_device_patcher/profiles/manual"
-    name = "api:fit_device_patcher:profiles:manual"
+    url = "/api/garmin_fit_device_changer/profiles/manual"
+    name = "api:garmin_fit_device_changer:profiles:manual"
     requires_auth = True
 
     async def post(self, request: web.Request) -> web.Response:
@@ -163,8 +163,8 @@ class ManualProfileView(HomeAssistantView):
 class DefaultProfileView(HomeAssistantView):
     """Set the default creator profile."""
 
-    url = "/api/fit_device_patcher/profiles/default"
-    name = "api:fit_device_patcher:profiles:default"
+    url = "/api/garmin_fit_device_changer/profiles/default"
+    name = "api:garmin_fit_device_changer:profiles:default"
     requires_auth = True
 
     async def post(self, request: web.Request) -> web.Response:
@@ -180,8 +180,8 @@ class DefaultProfileView(HomeAssistantView):
 class DeleteProfileView(HomeAssistantView):
     """Delete a locally saved creator profile."""
 
-    url = "/api/fit_device_patcher/profiles/delete"
-    name = "api:fit_device_patcher:profiles:delete"
+    url = "/api/garmin_fit_device_changer/profiles/delete"
+    name = "api:garmin_fit_device_changer:profiles:delete"
     requires_auth = True
 
     async def post(self, request: web.Request) -> web.Response:
@@ -197,8 +197,8 @@ class DeleteProfileView(HomeAssistantView):
 class PatchView(HomeAssistantView):
     """Patch one uploaded FIT file and return a new FIT file."""
 
-    url = "/api/fit_device_patcher/patch"
-    name = "api:fit_device_patcher:patch"
+    url = "/api/garmin_fit_device_changer/patch"
+    name = "api:garmin_fit_device_changer:patch"
     requires_auth = True
 
     async def post(self, request: web.Request) -> web.Response:

@@ -1,4 +1,4 @@
-"""FIT Device Patcher integration for Home Assistant."""
+"""Garmin FIT Device Changer integration for Home Assistant."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .api import register_api_views
-from .const import CARD_URL, DATA_STORE, DOMAIN
+from .const import CARD_URL, DATA_STORE, DOMAIN, LEGACY_CARD_URL
 from .storage import ProfileStore
 
 
@@ -23,15 +23,18 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     register_api_views(hass)
 
-    card_path = Path(__file__).parent / "www" / "fit-device-patcher-card.js"
+    card_path = Path(__file__).parent / "www" / "garmin-fit-device-changer-card.js"
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL, str(card_path), cache_headers=False)]
+        [
+            StaticPathConfig(CARD_URL, str(card_path), cache_headers=False),
+            StaticPathConfig(LEGACY_CARD_URL, str(card_path), cache_headers=False),
+        ]
     )
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up FIT Device Patcher from a config entry."""
+    """Set up Garmin FIT Device Changer from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = True
     return True

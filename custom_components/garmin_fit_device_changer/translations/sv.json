@@ -1,14 +1,14 @@
 {
-  "title": "FIT Device Patcher",
+  "title": "Garmin FIT Device Changer",
   "config": {
     "step": {
       "user": {
-        "title": "FIT Device Patcher",
-        "description": "Installera den lokala FIT-patchern. Enhetsidentiteter importeras senare från äkta referens-FIT-filer och sparas endast lokalt i Home Assistant."
+        "title": "Garmin FIT Device Changer",
+        "description": "Installera Garmin FIT Device Changer. Enhetsprofiler kan importeras från en äkta referens-FIT eller skapas manuellt från Garmins Product ID-data och sparas endast lokalt i Home Assistant."
       }
     },
     "abort": {
-      "already_configured": "FIT Device Patcher är redan konfigurerad."
+      "already_configured": "Garmin FIT Device Changer är redan konfigurerad."
     }
   }
 }

@@ -1,14 +1,14 @@
 {
-  "title": "FIT Device Patcher",
+  "title": "Garmin FIT Device Changer",
   "config": {
     "step": {
       "user": {
-        "title": "FIT Device Patcher",
-        "description": "Install the local FIT creator-device patcher. Device identities are imported later from genuine reference FIT files and stored only in Home Assistant."
+        "title": "Garmin FIT Device Changer",
+        "description": "Install Garmin FIT Device Changer. Device profiles can be imported from a genuine reference FIT or created manually from Garmin Product ID data and are stored only in Home Assistant."
       }
     },
     "abort": {
-      "already_configured": "FIT Device Patcher is already configured."
+      "already_configured": "Garmin FIT Device Changer is already configured."
     }
   }
 }

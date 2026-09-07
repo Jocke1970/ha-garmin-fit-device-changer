@@ -1,4 +1,4 @@
-# FIT Device Patcher for Home Assistant
+# Garmin FIT Device Changer for Home Assistant
 
 A Home Assistant custom integration that changes the **creator Garmin device identity** in an existing FIT activity file without re-encoding the activity.
 
@@ -6,11 +6,16 @@ The patcher is intentionally surgical: it changes only creator identity fields t
 
 > **Development status:** M1 / pre-release. Do not use on the only copy of an activity. The source file is never overwritten by the integration, but keep your original FIT files until the workflow has been verified in your own Garmin Connect account.
 
-## Why reference FIT files?
+## Device profiles
 
-Garmin Connect does not reliably identify a device from `manufacturer` + `product` alone. A working creator identity also includes the physical device serial number and, when present, the creator software version.
+Garmin Connect does not reliably identify a physical device from `manufacturer` + `product` alone. The most reliable creator identity also includes the device serial number and creator software version.
 
-FIT Device Patcher therefore learns each target device from a **genuine FIT activity created by that device**. The reference FIT itself is not stored. Only its creator profile is saved locally in Home Assistant storage.
+Garmin FIT Device Changer supports two ways to create a target profile:
+
+1. **Reference FIT (recommended):** import a genuine activity created by the device. The FIT itself is not stored; only its creator profile is saved locally in Home Assistant.
+2. **Manual profile:** choose a Garmin model from the built-in Garmin FIT product catalog, then choose either:
+   - **Full identity** — manufacturer + product + serial number + firmware version. This matches the creator-identity method verified against Garmin Connect.
+   - **Basic Garmin data** — manufacturer + product only. The source FIT serial/software are left unchanged. This is useful when no reference activity or device details are available, but Garmin Connect may not associate the activity with the physical device.
 
 Creator-profile extraction has been tested during development with genuine FIT files from:
 
@@ -26,6 +31,8 @@ Other devices can be imported from a genuine reference FIT as well; unknown prod
 - Config-flow installation in Home Assistant
 - Local creator-profile storage; device serial numbers are never committed to this repository
 - Import a device profile from a genuine reference FIT
+- Create a manual profile from built-in Garmin model/Product ID data
+- Choose full manual identity (serial + firmware) or basic Garmin model data only
 - fēnix 7 Pro becomes the preferred default when available
 - Dropdown for selecting the target device
 - Patch `file_id` creator identity, `file_creator.software_version`, and creator `device_info` fields when those fields already exist
@@ -35,44 +42,52 @@ Other devices can be imported from a genuine reference FIT as well; unknown prod
 - Swedish and English UI text
 - Lovelace card served directly by the integration
 
+### Upgrading from the pre-release `fit_device_patcher` test build
+
+The integration domain was renamed before `v0.1.0` from `fit_device_patcher` to `garmin_fit_device_changer`. Remove the old custom-component folder/config entry and install the new one. Existing locally saved device profiles are automatically migrated from the old `.storage/fit_device_patcher.profiles` store when the new integration starts. The old Lovelace resource URL/card type is temporarily accepted as a compatibility alias during M1 testing.
+
 ## Development-branch installation
 
 Until M1 has passed the Home Assistant test and is merged to `main`, install the feature branch manually.
 
-1. Copy `custom_components/fit_device_patcher` from the `feature/m1-ha-integration` branch to:
+1. Copy `custom_components/garmin_fit_device_changer` from the `feature/m1-ha-integration` branch to:
 
    ```text
-   /config/custom_components/fit_device_patcher
+   /config/custom_components/garmin_fit_device_changer
    ```
 
 2. Restart Home Assistant.
-3. Go to **Settings → Devices & services → Add integration** and add **FIT Device Patcher**.
+3. Go to **Settings → Devices & services → Add integration** and add **Garmin FIT Device Changer**.
 4. Add this Lovelace resource as a JavaScript module:
 
    ```text
-   /fit_device_patcher/fit-device-patcher-card.js
+   /garmin_fit_device_changer/garmin-fit-device-changer-card.js
    ```
 
 5. Add the card:
 
    ```yaml
-   type: custom:fit-device-patcher-card
-   title: FIT Device Patcher
+   type: custom:garmin-fit-device-changer-card
+   title: Garmin FIT Device Changer
    ```
 
 ## Workflow
 
-### 1. Import device profiles
+### 1. Create device profiles
 
-Use an untouched activity FIT created by the real Garmin device. For example, import one activity from the fēnix 7 Pro and one from the Edge 1040.
+Prefer an untouched activity FIT created by the real Garmin device. For example, import one activity from the fēnix 7 Pro and one from the Edge 1040.
 
-The integration stores only:
+If no reference FIT is available, use **Add device manually**. Pick the Garmin model and choose either full identity or basic data.
+
+The integration stores only the selected profile data:
 
 - manufacturer
 - product
-- serial number
-- software version, when available
-- your chosen display label
+- serial number, for full profiles
+- software version, for full profiles
+- profile source/mode and your chosen display label
+
+The initial built-in catalog is curated from Garmin's FIT SDK and includes Edge 1040/1050, fēnix 7S/7/7X Pro, Forerunner 965 and Forerunner 970.
 
 ### 2. Patch an activity
 
@@ -91,7 +106,8 @@ M1 refuses to patch when:
 - the FIT header or file CRC is invalid
 - the file is chained / contains extra FIT data after its CRC
 - compressed-timestamp FIT records are present (not supported safely in M1)
-- required `file_id.manufacturer`, `file_id.product`, or `file_id.serial_number` fields are missing
+- required `file_id.manufacturer` or `file_id.product` fields are missing
+- `file_id.serial_number` is missing when a full-identity profile needs to patch it
 - an expected creator field has an unsupported byte size
 - byte-level verification finds any change outside the intended creator fields and trailing CRC
 

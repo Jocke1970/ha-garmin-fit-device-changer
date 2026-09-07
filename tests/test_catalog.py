@@ -3,8 +3,8 @@ import sys
 import unittest
 from pathlib import Path
 
-CATALOG_PATH = Path(__file__).parents[1] / "custom_components" / "fit_device_patcher" / "catalog.py"
-spec = importlib.util.spec_from_file_location("fit_device_patcher_catalog", CATALOG_PATH)
+CATALOG_PATH = Path(__file__).parents[1] / "custom_components" / "garmin_fit_device_changer" / "catalog.py"
+spec = importlib.util.spec_from_file_location("garmin_fit_device_changer_catalog", CATALOG_PATH)
 catalog = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = catalog
 spec.loader.exec_module(catalog)

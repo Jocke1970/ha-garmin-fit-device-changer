@@ -15,4 +15,4 @@ jobs:
       - name: Run FIT patcher tests
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
-        run: python -m compileall -q custom_components/fit_device_patcher
+        run: python -m compileall -q custom_components/garmin_fit_device_changer

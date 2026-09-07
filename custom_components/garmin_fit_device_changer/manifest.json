@@ -1,10 +1,10 @@
 {
-  "domain": "fit_device_patcher",
-  "name": "FIT Device Patcher",
+  "domain": "garmin_fit_device_changer",
+  "name": "Garmin FIT Device Changer",
   "codeowners": ["@Jocke1970"],
   "config_flow": true,
   "dependencies": ["http"],
-  "documentation": "https://github.com/Jocke1970/ha-fit-device-patcher",
+  "documentation": "https://github.com/Jocke1970/ha-garmin-fit-device-changer",
   "integration_type": "service",
   "requirements": [],
   "version": "0.1.0"

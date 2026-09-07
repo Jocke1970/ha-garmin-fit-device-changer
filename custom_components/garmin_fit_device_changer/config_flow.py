@@ -1,4 +1,4 @@
-"""Config flow for FIT Device Patcher."""
+"""Config flow for Garmin FIT Device Changer."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from homeassistant import config_entries
 from .const import DOMAIN, NAME
 
 
-class FitDevicePatcherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Create the single FIT Device Patcher config entry."""
+class GarminFitDeviceChangerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Create the single Garmin FIT Device Changer config entry."""
 
     VERSION = 1
 

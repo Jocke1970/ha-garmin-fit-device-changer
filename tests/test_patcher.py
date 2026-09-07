@@ -4,8 +4,8 @@ import sys
 import unittest
 from pathlib import Path
 
-PATCHER_PATH = Path(__file__).parents[1] / "custom_components" / "fit_device_patcher" / "patcher.py"
-spec = importlib.util.spec_from_file_location("fit_device_patcher_patcher", PATCHER_PATH)
+PATCHER_PATH = Path(__file__).parents[1] / "custom_components" / "garmin_fit_device_changer" / "patcher.py"
+spec = importlib.util.spec_from_file_location("garmin_fit_device_changer_patcher", PATCHER_PATH)
 patcher = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = patcher
 spec.loader.exec_module(patcher)
@@ -26,7 +26,6 @@ def make_fit(
 ) -> bytes:
     data = bytearray()
 
-    # local 0: file_id with type/manufacturer/product/serial/time_created
     data += bytes([
         0x40, 0x00, 0x00, 0x00, 0x00, 0x05,
         0x00, 0x01, 0x00,
@@ -38,7 +37,6 @@ def make_fit(
     data += bytes([0x00, 0x04])
     data += struct.pack("<HHII", manufacturer, product, serial, 1_000_000)
 
-    # local 1: file_creator software_version
     data += bytes([
         0x41, 0x00, 0x00, 0x31, 0x00, 0x01,
         0x00, 0x02, 0x84,
@@ -46,7 +44,6 @@ def make_fit(
     data += bytes([0x01]) + struct.pack("<H", software)
 
     if include_creator_device:
-        # local 2: device_info index/manufacturer/serial/product/software
         data += bytes([
             0x42, 0x00, 0x00, 0x17, 0x00, 0x05,
             0x00, 0x01, 0x02,
@@ -57,7 +54,6 @@ def make_fit(
         ])
         data += bytes([0x02, 0x00])
         data += struct.pack("<HIHH", manufacturer, serial, product, software)
-        # accessory record: must remain untouched
         data += bytes([0x02, 0x01])
         data += struct.pack("<HIHH", 1, 555555, 1234, 777)
 
@@ -74,7 +70,7 @@ def make_fit(
     return bytes(out)
 
 
-class FitDevicePatcherTests(unittest.TestCase):
+class GarminFitDeviceChangerTests(unittest.TestCase):
     def test_extract_reference_identity(self):
         reference = make_fit(1, 3843, 3417487351, 3011)
         self.assertEqual(
@@ -95,7 +91,6 @@ class FitDevicePatcherTests(unittest.TestCase):
         self.assertIn(("file_creator", "software_version"), changed_names)
         self.assertIn(("device_info[creator]", "serial_number"), changed_names)
 
-        # Accessory metadata remains byte-for-byte present.
         self.assertIn(struct.pack("<I", 555555), patched)
         self.assertIn(struct.pack("<H", 1234), patched)
         self.assertIn(struct.pack("<H", 777), patched)
@@ -109,11 +104,8 @@ class FitDevicePatcherTests(unittest.TestCase):
 
     def test_rejects_compressed_timestamp_records(self):
         original = bytearray(make_fit(331, 3570, 3313379353, 29, include_creator_device=False))
-        # The first data record is a definition at offset 14. Change the first
-        # subsequent data header (offset 35) into a compressed timestamp header.
         layout = parse_layout(original)
         original[35] = 0x80
-        # Recalculate file CRC so validation reaches the record parser.
         struct.pack_into("<H", original, layout.file_crc_offset, fit_crc(original, 0, layout.file_crc_offset))
         with self.assertRaises(patcher.FitPatchError):
             extract_creator_identity(bytes(original))
