@@ -212,10 +212,24 @@ class PatchView(HomeAssistantView):
                 return _json_error(self, "Unknown target profile.", HTTPStatus.NOT_FOUND)
 
             raw = _decode_fit(payload.get("content_base64"))
+            patch_identity = profile.identity
+            if profile.identity_mode == "basic":
+                # Basic mode keeps the source FIT's physical creator identity
+                # while replacing only Garmin manufacturer/product model data.
+                source_identity = await hass.async_add_executor_job(
+                    extract_creator_identity, raw
+                )
+                patch_identity = CreatorIdentity(
+                    manufacturer=profile.manufacturer,
+                    product=profile.product,
+                    serial_number=source_identity.serial_number,
+                    software_version=source_identity.software_version,
+                )
+
             patched, changes = await hass.async_add_executor_job(
                 patch_fit_bytes,
                 raw,
-                profile.identity,
+                patch_identity,
             )
         except (FitPatchError, ValueError, TypeError) as exc:
             return _json_error(self, str(exc), HTTPStatus.BAD_REQUEST)
