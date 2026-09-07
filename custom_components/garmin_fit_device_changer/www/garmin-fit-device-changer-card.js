@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.0-m1.5";
+const CARD_VERSION = "0.1.0-m1.6";
 
 const TEXT = {
   sv: {
@@ -64,7 +64,7 @@ class GarminFitDeviceChangerCard extends HTMLElement {
   static getStubConfig() { return {}; }
   setConfig(config) { this._config = config || {}; this._render(); }
   set hass(hass) { this._hass = hass; if (!this._loaded) { this._loaded = true; this._load(); } }
-  getCardSize() { return 10; }
+  getCardSize() { return 8; }
   disconnectedCallback() { if (this._downloadUrl) URL.revokeObjectURL(this._downloadUrl); }
   _t() { const l = this._hass?.locale?.language || this._hass?.language || "en"; return String(l).toLowerCase().startsWith("sv") ? TEXT.sv : TEXT.en; }
   _pickProfile() { return this._profiles.find((p) => p.profile_id === this._selected); }
@@ -158,14 +158,67 @@ class GarminFitDeviceChangerCard extends HTMLElement {
     const changes = (this._result?.changes || []).map((c) => `<div class="change"><code>${esc(c.message)}.${esc(c.field)}</code><span>${esc(c.old)} → ${esc(c.new)}</span></div>`).join("");
     const result = this._result && this._downloadUrl ? `<div class="result"><strong>${t.changed}</strong>${changes}<a class="primary download" href="${this._downloadUrl}" download="${esc(this._result.filename)}">${t.download}</a></div>` : "";
     const status = this._status ? `<div class="status ${esc(this._status.kind)}">${esc(this._status.message)}</div>` : "";
+    const configuredTitle = String(this._config.title || "").trim();
+    const normalizedTitle = configuredTitle.toLowerCase();
+    const customTitle = configuredTitle && normalizedTitle !== "fit device patcher" && normalizedTitle !== t.title.toLowerCase()
+      ? configuredTitle
+      : "";
+    const chevron = '<span class="chevron" aria-hidden="true"></span>';
 
     this.shadowRoot.innerHTML = `<style>
-      :host{display:block}ha-card{padding:18px}h2{margin:0 0 18px;font-size:1.35rem}h3{margin:0 0 8px;font-size:1rem}.section{padding:0;border-top:1px solid var(--divider-color)}.section:first-of-type{border-top:0}.section summary{display:flex;align-items:center;gap:10px;padding:14px 2px;cursor:pointer;font-size:1rem;font-weight:500;user-select:none}.section summary::marker{color:var(--secondary-text-color)}.summary-meta{margin-left:auto;color:var(--secondary-text-color);font-size:.86rem;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}.section-body{padding:0 0 14px}.help,.meta{color:var(--secondary-text-color);font-size:.9rem;line-height:1.4}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.full{grid-column:1/-1}.field,label{display:flex;flex-direction:column;gap:6px;font-size:.9rem}input[type=text],select{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}.picker{display:flex;border:1px solid var(--divider-color);border-radius:8px;overflow:hidden}.picker input{position:absolute;width:1px;height:1px;opacity:0}.picker label{padding:10px 12px;background:var(--secondary-background-color);border-right:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.fname{padding:10px 12px;overflow-wrap:anywhere}.fname.empty{color:var(--secondary-text-color)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}button,a.primary{border:0;border-radius:8px;padding:10px 14px;font:inherit;text-decoration:none;cursor:pointer}button.primary,a.primary{background:var(--primary-color);color:var(--text-primary-color,#fff)}button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}button.danger{background:var(--error-color);color:#fff}button:disabled{opacity:.5}.profile-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}.note,.status{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--secondary-background-color);font-size:.9rem;line-height:1.4}.note.full,.status.ok{border-left:4px solid var(--success-color,#43a047)}.note.basic{border-left:4px solid var(--warning-color,#ff9800)}.status.error{border-left:4px solid var(--error-color)}.status.info{border-left:4px solid var(--primary-color)}.change{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:.9rem}.download{display:inline-block;margin-top:14px}@media(max-width:600px){.grid{grid-template-columns:1fr}}
-    </style><ha-card><h2>${esc(this._config.title || t.title)}</h2>
-      <details id="details-profiles" class="section" ${this._open.profiles ? "open" : ""}><summary>${t.profiles}${selected ? `<span class="summary-meta">${esc(selected.label)}</span>` : ""}</summary><div class="section-body">${this._profiles.length ? `<label>${t.target}<select id="profile">${profiles}</select></label>${selected ? `<div class="profile-meta meta"><span>${t.product}: ${selected.product}</span><span>${t.serial}: ${esc(selected.serial_number)}</span><span>${t.software}: ${esc(selected.software_version)}</span><span>${t.profileType}: ${selected.identity_mode === "full" ? t.full : t.basic}</span></div>` : ""}<div class="actions"><button id="default" class="secondary" ${this._busy || selected?.is_default ? "disabled" : ""}>${t.makeDefault}</button><button id="delete" class="danger" ${this._busy ? "disabled" : ""}>${t.remove}</button></div>` : `<div class="help">${t.noProfiles}</div>`}</div></details>
-      <details id="details-reference" class="section" ${this._open.reference ? "open" : ""}><summary>${t.refTitle}</summary><div class="section-body"><div class="help">${t.refHelp}</div><div class="grid">${this._filePicker("ref-file",t.refFile,this._refFile)}<label>${t.optionalName}<input id="ref-label" type="text" value="${esc(this._refLabel)}"></label></div><div class="actions"><button id="import" class="primary" ${this._busy ? "disabled" : ""}>${t.import}</button></div></div></details>
-      <details id="details-manual" class="section" ${this._open.manual ? "open" : ""}><summary>${t.manualTitle}</summary><div class="section-body"><div class="help">${t.manualHelp}</div>${this._catalog.length ? `<div class="grid"><label>${t.model}<select id="manual-device">${devices}</select></label><label>${t.identity}<select id="manual-mode"><option value="full" ${this._manual.mode === "full" ? "selected" : ""}>${t.fullMode}</option><option value="basic" ${this._manual.mode === "basic" ? "selected" : ""}>${t.basicMode}</option></select></label>${this._manual.mode === "full" ? `<label>${t.serialNumber}<input id="manual-serial" type="text" inputmode="numeric" value="${esc(this._manual.serial)}"></label><label>${t.firmware}<input id="manual-firmware" type="text" inputmode="decimal" value="${esc(this._manual.firmware)}" placeholder="30.11"></label>` : ""}<label class="full">${t.optionalName}<input id="manual-label" type="text" value="${esc(this._manual.label)}" placeholder="${esc(manualDevice?.label || "")}"></label></div><div class="note ${this._manual.mode}">${this._manual.mode === "full" ? t.fullHelp : t.basicHelp}</div><div class="actions"><button id="manual-save" class="primary" ${this._busy ? "disabled" : ""}>${t.saveManual}</button></div>` : ""}</div></details>
-      <details id="details-patch" class="section" ${this._open.patch ? "open" : ""}><summary>${t.patchTitle}${this._sourceFile ? `<span class="summary-meta">${esc(this._sourceFile.name)}</span>` : ""}</summary><div class="section-body">${this._filePicker("src-file",t.sourceFile,this._sourceFile)}<div class="actions"><button id="patch" class="primary" ${this._busy || !this._profiles.length ? "disabled" : ""}>${t.patch}</button></div>${result}</div></details>${status}<div class="meta" style="margin-top:12px">v${CARD_VERSION}</div>
+      :host{display:block}
+      ha-card{padding:16px 18px 14px}
+      .brand{position:relative;overflow:hidden;margin:0 0 8px;padding:12px 16px 11px;border:1px solid var(--divider-color);border-radius:12px;background:linear-gradient(135deg,var(--secondary-background-color),var(--card-background-color));line-height:1}
+      .brand::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--primary-color)}
+      .brand-kicker{font-size:.68rem;font-weight:700;letter-spacing:.24em;color:var(--secondary-text-color);margin-bottom:5px}
+      .brand-name{font-size:1.28rem;font-weight:750;letter-spacing:.075em;color:var(--primary-text-color)}
+      .brand-sub{font-size:.62rem;font-weight:600;letter-spacing:.18em;color:var(--secondary-text-color);margin-top:6px}
+      .custom-title{margin:-1px 2px 8px;color:var(--secondary-text-color);font-size:.82rem}
+      .section{padding:0;border-top:1px solid var(--divider-color)}
+      .section:first-of-type{border-top:0}
+      .section summary{display:flex;align-items:center;gap:10px;min-height:24px;padding:13px 3px;cursor:pointer;font-size:.98rem;font-weight:550;user-select:none;list-style:none;border-radius:8px}
+      .section summary::-webkit-details-marker{display:none}
+      .section summary::marker{content:""}
+      .section summary:focus{outline:none}
+      .section summary:focus-visible{outline:2px solid var(--primary-color);outline-offset:-2px}
+      .section summary:hover{background:var(--secondary-background-color)}
+      .chevron{width:7px;height:7px;flex:0 0 7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .16s ease;color:var(--secondary-text-color);margin-left:2px}
+      details[open]>summary .chevron{transform:rotate(45deg);color:var(--primary-color)}
+      .summary-title{min-width:0}
+      .summary-meta{margin-left:auto;color:var(--secondary-text-color);font-size:.82rem;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%}
+      .section-body{padding:1px 5px 16px 24px}
+      .help,.meta{color:var(--secondary-text-color);font-size:.88rem;line-height:1.4}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+      .full{grid-column:1/-1}
+      .field,label{display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+      input[type=text],select{box-sizing:border-box;width:100%;min-height:42px;padding:9px 10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit;font-size:1rem}
+      .picker{display:flex;border:1px solid var(--divider-color);border-radius:8px;overflow:hidden;background:var(--card-background-color)}
+      .picker input{position:absolute;width:1px;height:1px;opacity:0}
+      .picker label{justify-content:center;padding:9px 12px;background:var(--secondary-background-color);border-right:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}
+      .fname{padding:9px 12px;overflow-wrap:anywhere;line-height:1.35}
+      .fname.empty{color:var(--secondary-text-color)}
+      .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+      button,a.primary{border:0;border-radius:8px;padding:9px 14px;font:inherit;text-decoration:none;cursor:pointer}
+      button.primary,a.primary{background:var(--primary-color);color:var(--text-primary-color,#fff)}
+      button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}
+      button.danger{background:var(--error-color);color:#fff}
+      button:disabled{opacity:.5}
+      .profile-meta{display:flex;gap:8px 12px;flex-wrap:wrap;margin-top:8px}
+      .note,.status{margin-top:12px;padding:9px 12px;border-radius:8px;background:var(--secondary-background-color);font-size:.88rem;line-height:1.4}
+      .note.full,.status.ok{border-left:4px solid var(--success-color,#43a047)}
+      .note.basic{border-left:4px solid var(--warning-color,#ff9800)}
+      .status.error{border-left:4px solid var(--error-color)}
+      .status.info{border-left:4px solid var(--primary-color)}
+      .change{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:.88rem}
+      .download{display:inline-block;margin-top:14px}
+      .version{margin:9px 2px 0;font-size:.76rem}
+      @media(max-width:600px){.grid{grid-template-columns:1fr}.section-body{padding-left:20px}.brand-name{font-size:1.16rem}.summary-meta{max-width:42%}}
+    </style><ha-card>
+      <div class="brand" aria-label="${esc(t.title)}"><div class="brand-kicker">GARMIN FIT</div><div class="brand-name">DEVICE CHANGER</div><div class="brand-sub">HOME ASSISTANT</div></div>${customTitle ? `<div class="custom-title">${esc(customTitle)}</div>` : ""}
+      <details id="details-profiles" class="section" ${this._open.profiles ? "open" : ""}><summary>${chevron}<span class="summary-title">${t.profiles}</span>${selected ? `<span class="summary-meta">${esc(selected.label)}</span>` : ""}</summary><div class="section-body">${this._profiles.length ? `<label>${t.target}<select id="profile">${profiles}</select></label>${selected ? `<div class="profile-meta meta"><span>${t.product}: ${selected.product}</span><span>${t.serial}: ${esc(selected.serial_number)}</span><span>${t.software}: ${esc(selected.software_version)}</span><span>${t.profileType}: ${selected.identity_mode === "full" ? t.full : t.basic}</span></div>` : ""}<div class="actions"><button id="default" class="secondary" ${this._busy || selected?.is_default ? "disabled" : ""}>${t.makeDefault}</button><button id="delete" class="danger" ${this._busy ? "disabled" : ""}>${t.remove}</button></div>` : `<div class="help">${t.noProfiles}</div>`}</div></details>
+      <details id="details-reference" class="section" ${this._open.reference ? "open" : ""}><summary>${chevron}<span class="summary-title">${t.refTitle}</span></summary><div class="section-body"><div class="help">${t.refHelp}</div><div class="grid">${this._filePicker("ref-file",t.refFile,this._refFile)}<label>${t.optionalName}<input id="ref-label" type="text" value="${esc(this._refLabel)}"></label></div><div class="actions"><button id="import" class="primary" ${this._busy ? "disabled" : ""}>${t.import}</button></div></div></details>
+      <details id="details-manual" class="section" ${this._open.manual ? "open" : ""}><summary>${chevron}<span class="summary-title">${t.manualTitle}</span></summary><div class="section-body"><div class="help">${t.manualHelp}</div>${this._catalog.length ? `<div class="grid"><label>${t.model}<select id="manual-device">${devices}</select></label><label>${t.identity}<select id="manual-mode"><option value="full" ${this._manual.mode === "full" ? "selected" : ""}>${t.fullMode}</option><option value="basic" ${this._manual.mode === "basic" ? "selected" : ""}>${t.basicMode}</option></select></label>${this._manual.mode === "full" ? `<label>${t.serialNumber}<input id="manual-serial" type="text" inputmode="numeric" value="${esc(this._manual.serial)}"></label><label>${t.firmware}<input id="manual-firmware" type="text" inputmode="decimal" value="${esc(this._manual.firmware)}" placeholder="30.11"></label>` : ""}<label class="full">${t.optionalName}<input id="manual-label" type="text" value="${esc(this._manual.label)}" placeholder="${esc(manualDevice?.label || "")}"></label></div><div class="note ${this._manual.mode}">${this._manual.mode === "full" ? t.fullHelp : t.basicHelp}</div><div class="actions"><button id="manual-save" class="primary" ${this._busy ? "disabled" : ""}>${t.saveManual}</button></div>` : ""}</div></details>
+      <details id="details-patch" class="section" ${this._open.patch ? "open" : ""}><summary>${chevron}<span class="summary-title">${t.patchTitle}</span>${this._sourceFile ? `<span class="summary-meta">${esc(this._sourceFile.name)}</span>` : ""}</summary><div class="section-body">${this._filePicker("src-file",t.sourceFile,this._sourceFile)}<div class="actions"><button id="patch" class="primary" ${this._busy || !this._profiles.length ? "disabled" : ""}>${t.patch}</button></div>${result}</div></details>${status}<div class="meta version">v${CARD_VERSION}</div>
     </ha-card>`;
     this._wire();
   }
