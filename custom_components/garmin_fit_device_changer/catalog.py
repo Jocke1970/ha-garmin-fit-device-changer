@@ -57,6 +57,17 @@ def public_device_catalog() -> list[dict[str, object]]:
     ]
 
 
+def parse_product_id(value: object) -> int:
+    """Validate a Garmin FIT Product ID entered manually."""
+    text = str(value or "").strip()
+    if not text or not text.isdigit():
+        raise ValueError("Product ID must contain digits only.")
+    product = int(text)
+    if not 0 <= product <= 0xFFFF:
+        raise ValueError("Product ID must fit in a FIT uint16 field.")
+    return product
+
+
 def parse_serial_number(value: object) -> int:
     """Validate a Garmin/FIT uint32 serial number entered manually."""
     text = str(value or "").strip()
