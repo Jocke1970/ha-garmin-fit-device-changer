@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.0-m1.1";
+const CARD_VERSION = "0.1.0-m1.2";
 
 const TEXT = {
   sv: {
@@ -11,6 +11,8 @@ const TEXT = {
     referenceTitle: "Importera enhet från referens-FIT",
     referenceHelp: "Välj en äkta aktivitet som skapats av enheten. FIT-filen sparas inte; endast creator-identiteten lagras lokalt i Home Assistant.",
     referenceFile: "Referens-FIT",
+    chooseFile: "Välj fil",
+    noFileSelected: "Ingen fil vald",
     optionalName: "Visningsnamn (valfritt)",
     import: "Importera enhet",
     patchTitle: "Patcha FIT-fil",
@@ -44,6 +46,8 @@ const TEXT = {
     referenceTitle: "Import device from reference FIT",
     referenceHelp: "Choose a genuine activity created by the device. The FIT file is not stored; only the creator identity is saved locally in Home Assistant.",
     referenceFile: "Reference FIT",
+    chooseFile: "Choose file",
+    noFileSelected: "No file selected",
     optionalName: "Display name (optional)",
     import: "Import device",
     patchTitle: "Patch FIT file",
@@ -310,6 +314,7 @@ class FitDevicePatcherCard extends HTMLElement {
     if (referenceFile) {
       referenceFile.addEventListener("change", (event) => {
         this._referenceFile = event.target.files?.[0] || null;
+        this._render();
       });
     }
 
@@ -324,6 +329,7 @@ class FitDevicePatcherCard extends HTMLElement {
     if (sourceFile) {
       sourceFile.addEventListener("change", (event) => {
         this._sourceFile = event.target.files?.[0] || null;
+        this._render();
       });
     }
 
@@ -381,7 +387,13 @@ class FitDevicePatcherCard extends HTMLElement {
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
         .full { grid-column: 1 / -1; }
         label { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
-        input, select { box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid var(--divider-color); border-radius: 8px; background: var(--card-background-color); color: var(--primary-text-color); }
+        input[type="text"], select { box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid var(--divider-color); border-radius: 8px; background: var(--card-background-color); color: var(--primary-text-color); }
+        .file-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; min-width: 0; }
+        .file-picker { display: flex; align-items: stretch; min-width: 0; border: 1px solid var(--divider-color); border-radius: 8px; overflow: hidden; background: var(--card-background-color); }
+        .file-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
+        .file-button { flex: 0 0 auto; justify-content: center; padding: 10px 12px; background: var(--secondary-background-color); border-right: 1px solid var(--divider-color); cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+        .file-name { flex: 1 1 auto; min-width: 0; padding: 10px 12px; color: var(--primary-text-color); overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; }
+        .file-name.empty { color: var(--secondary-text-color); }
         .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         button, a.primary { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; font: inherit; text-decoration: none; }
         button.primary, a.primary { background: var(--primary-color); color: var(--text-primary-color, white); }
@@ -423,7 +435,14 @@ class FitDevicePatcherCard extends HTMLElement {
           <h3>${t.referenceTitle}</h3>
           <div class="help">${t.referenceHelp}</div>
           <div class="grid">
-            <label>${t.referenceFile}<input id="reference-file" type="file" accept=".fit,application/octet-stream"></label>
+            <div class="file-field">
+              <span>${t.referenceFile}</span>
+              <div class="file-picker">
+                <input id="reference-file" class="file-input" type="file" accept=".fit,application/octet-stream">
+                <label class="file-button" for="reference-file">${t.chooseFile}</label>
+                <div class="file-name ${this._referenceFile ? "" : "empty"}" title="${escapeHtml(this._referenceFile?.name || "")}">${escapeHtml(this._referenceFile?.name || t.noFileSelected)}</div>
+              </div>
+            </div>
             <label>${t.optionalName}<input id="reference-label" type="text" value="${escapeHtml(this._referenceLabel)}"></label>
           </div>
           <div class="actions"><button id="import-button" class="primary" ${this._busy ? "disabled" : ""}>${t.import}</button></div>
@@ -431,7 +450,14 @@ class FitDevicePatcherCard extends HTMLElement {
 
         <div class="section">
           <h3>${t.patchTitle}</h3>
-          <label>${t.sourceFile}<input id="source-file" type="file" accept=".fit,application/octet-stream"></label>
+          <div class="file-field">
+            <span>${t.sourceFile}</span>
+            <div class="file-picker">
+              <input id="source-file" class="file-input" type="file" accept=".fit,application/octet-stream">
+              <label class="file-button" for="source-file">${t.chooseFile}</label>
+              <div class="file-name ${this._sourceFile ? "" : "empty"}" title="${escapeHtml(this._sourceFile?.name || "")}">${escapeHtml(this._sourceFile?.name || t.noFileSelected)}</div>
+            </div>
+          </div>
           <div class="actions"><button id="patch-button" class="primary" ${this._busy || !this._profiles.length ? "disabled" : ""}>${t.patch}</button></div>
           ${resultHtml}
         </div>
