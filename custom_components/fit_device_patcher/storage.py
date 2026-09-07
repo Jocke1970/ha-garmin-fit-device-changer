@@ -15,14 +15,16 @@ from .patcher import CreatorIdentity, format_software_version, mask_serial
 
 @dataclass(frozen=True)
 class DeviceProfile:
-    """A saved creator identity imported from a genuine FIT file."""
+    """A saved creator identity used as a patch target."""
 
     profile_id: str
     label: str
     manufacturer: int
     product: int
-    serial_number: int
+    serial_number: Optional[int]
     software_version: Optional[int]
+    source: str = "reference"
+    identity_mode: str = "full"
 
     @property
     def identity(self) -> CreatorIdentity:
@@ -43,6 +45,8 @@ class DeviceProfile:
             "product": self.product,
             "serial_number": self.serial_number,
             "software_version": self.software_version,
+            "source": self.source,
+            "identity_mode": self.identity_mode,
         }
 
     def to_public(self, is_default: bool = False) -> dict[str, Any]:
@@ -54,30 +58,44 @@ class DeviceProfile:
             "product": self.product,
             "serial_number": mask_serial(self.serial_number),
             "software_version": format_software_version(self.software_version),
+            "source": self.source,
+            "identity_mode": self.identity_mode,
+            "is_full_identity": self.identity_mode == "full",
             "is_default": is_default,
         }
 
     @classmethod
     def from_storage(cls, data: dict[str, Any]) -> "DeviceProfile":
-        """Deserialize one stored profile."""
+        """Deserialize one stored profile, including M1 legacy data."""
+        serial_number = (
+            int(data["serial_number"])
+            if data.get("serial_number") is not None
+            else None
+        )
         return cls(
             profile_id=str(data["profile_id"]),
             label=str(data["label"]),
             manufacturer=int(data["manufacturer"]),
             product=int(data["product"]),
-            serial_number=int(data["serial_number"]),
+            serial_number=serial_number,
             software_version=(
                 int(data["software_version"])
                 if data.get("software_version") is not None
                 else None
             ),
+            source=str(data.get("source") or "reference"),
+            identity_mode=str(
+                data.get("identity_mode")
+                or ("full" if serial_number is not None else "basic")
+            ),
         )
 
 
 def _profile_id(identity: CreatorIdentity) -> str:
-    """Generate a stable non-serial profile id for one physical creator."""
+    """Generate a stable id without exposing a physical device serial."""
+    serial_token = identity.serial_number if identity.serial_number is not None else "basic"
     digest = sha256(
-        f"{identity.manufacturer}:{identity.product}:{identity.serial_number}".encode()
+        f"{identity.manufacturer}:{identity.product}:{serial_token}".encode()
     ).hexdigest()[:12]
     return f"device_{identity.product}_{digest}"
 
@@ -144,8 +162,15 @@ class ProfileStore:
         self,
         identity: CreatorIdentity,
         label: str,
+        *,
+        source: str = "reference",
+        identity_mode: Optional[str] = None,
     ) -> DeviceProfile:
-        """Add or update a creator profile imported from a reference FIT."""
+        """Add or update a creator profile."""
+        mode = identity_mode or ("full" if identity.serial_number is not None else "basic")
+        if mode not in ("basic", "full"):
+            raise ValueError(f"Unsupported identity mode: {mode}")
+
         profile_id = _profile_id(identity)
         profile = DeviceProfile(
             profile_id=profile_id,
@@ -154,6 +179,8 @@ class ProfileStore:
             product=identity.product,
             serial_number=identity.serial_number,
             software_version=identity.software_version,
+            source=source,
+            identity_mode=mode,
         )
         self._profiles[profile_id] = profile
 
