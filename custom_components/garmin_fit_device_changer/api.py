@@ -14,7 +14,9 @@ from homeassistant.components.http import KEY_HASS, HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from .catalog import (
+    GARMIN_MANUFACTURER,
     get_device_definition,
+    parse_product_id,
     parse_serial_number,
     parse_software_version,
     public_device_catalog,
@@ -127,8 +129,20 @@ class ManualProfileView(HomeAssistantView):
             payload = await request.json()
             device_key = str(payload.get("device_key") or "").strip()
             definition = get_device_definition(device_key)
-            if definition is None:
-                raise ValueError("Unknown Garmin device model.")
+
+            if device_key == "custom":
+                model_name = str(payload.get("model_name") or "").strip()
+                if not model_name:
+                    raise ValueError("Model name is required for a custom Garmin device.")
+                manufacturer = GARMIN_MANUFACTURER
+                product = parse_product_id(payload.get("product_id"))
+                default_label = model_name
+            else:
+                if definition is None:
+                    raise ValueError("Unknown Garmin device model.")
+                manufacturer = definition.manufacturer
+                product = definition.product
+                default_label = definition.label
 
             identity_mode = str(payload.get("identity_mode") or "basic").strip().lower()
             if identity_mode not in ("basic", "full"):
@@ -141,12 +155,12 @@ class ManualProfileView(HomeAssistantView):
                 software_version = parse_software_version(payload.get("software_version"))
 
             identity = CreatorIdentity(
-                manufacturer=definition.manufacturer,
-                product=definition.product,
+                manufacturer=manufacturer,
+                product=product,
                 serial_number=serial_number,
                 software_version=software_version,
             )
-            label = str(payload.get("label") or definition.label).strip()
+            label = str(payload.get("label") or default_label).strip()
             store = _store(hass)
             profile = await store.async_upsert(
                 identity,
