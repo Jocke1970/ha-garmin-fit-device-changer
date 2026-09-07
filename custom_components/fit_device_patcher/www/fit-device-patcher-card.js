@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.1.0-m1.1";
 
 const TEXT = {
   sv: {
@@ -114,6 +114,9 @@ class FitDevicePatcherCard extends HTMLElement {
     this._result = null;
     this._busy = false;
     this._downloadUrl = null;
+    this._referenceFile = null;
+    this._sourceFile = null;
+    this._referenceLabel = "";
   }
 
   static getStubConfig() {
@@ -130,8 +133,6 @@ class FitDevicePatcherCard extends HTMLElement {
     if (!this._loaded) {
       this._loaded = true;
       this._loadProfiles();
-    } else {
-      this._render();
     }
   }
 
@@ -193,13 +194,14 @@ class FitDevicePatcherCard extends HTMLElement {
   async _importProfile() {
     const t = this._t();
     const input = this.shadowRoot.querySelector("#reference-file");
-    const file = input?.files?.[0];
+    const file = this._referenceFile || input?.files?.[0];
     if (!file) {
       this._setStatus(t.needReference, "error");
       return;
     }
 
-    const label = this.shadowRoot.querySelector("#reference-label")?.value || "";
+    const label = this.shadowRoot.querySelector("#reference-label")?.value ?? this._referenceLabel;
+    this._referenceLabel = label;
     this._busy = true;
     this._setStatus(t.importing, "info");
     try {
@@ -211,6 +213,8 @@ class FitDevicePatcherCard extends HTMLElement {
       );
       this._applyProfiles(data);
       this._selectedProfileId = data?.profile?.profile_id || this._selectedProfileId;
+      this._referenceFile = null;
+      this._referenceLabel = "";
       this._busy = false;
       this._setStatus(t.imported, "ok");
     } catch (err) {
@@ -258,7 +262,7 @@ class FitDevicePatcherCard extends HTMLElement {
 
   async _patchFit() {
     const t = this._t();
-    const file = this.shadowRoot.querySelector("#source-file")?.files?.[0];
+    const file = this._sourceFile || this.shadowRoot.querySelector("#source-file")?.files?.[0];
     if (!file) {
       this._setStatus(t.needSource, "error");
       return;
@@ -302,6 +306,27 @@ class FitDevicePatcherCard extends HTMLElement {
         this._render();
       });
     }
+    const referenceFile = this.shadowRoot.querySelector("#reference-file");
+    if (referenceFile) {
+      referenceFile.addEventListener("change", (event) => {
+        this._referenceFile = event.target.files?.[0] || null;
+      });
+    }
+
+    const referenceLabel = this.shadowRoot.querySelector("#reference-label");
+    if (referenceLabel) {
+      referenceLabel.addEventListener("input", (event) => {
+        this._referenceLabel = event.target.value || "";
+      });
+    }
+
+    const sourceFile = this.shadowRoot.querySelector("#source-file");
+    if (sourceFile) {
+      sourceFile.addEventListener("change", (event) => {
+        this._sourceFile = event.target.files?.[0] || null;
+      });
+    }
+
     this.shadowRoot.querySelector("#import-button")?.addEventListener("click", () => this._importProfile());
     this.shadowRoot.querySelector("#default-button")?.addEventListener("click", () => this._setDefault());
     this.shadowRoot.querySelector("#delete-button")?.addEventListener("click", () => this._deleteProfile());
@@ -399,7 +424,7 @@ class FitDevicePatcherCard extends HTMLElement {
           <div class="help">${t.referenceHelp}</div>
           <div class="grid">
             <label>${t.referenceFile}<input id="reference-file" type="file" accept=".fit,application/octet-stream"></label>
-            <label>${t.optionalName}<input id="reference-label" type="text"></label>
+            <label>${t.optionalName}<input id="reference-label" type="text" value="${escapeHtml(this._referenceLabel)}"></label>
           </div>
           <div class="actions"><button id="import-button" class="primary" ${this._busy ? "disabled" : ""}>${t.import}</button></div>
         </div>
