@@ -14,11 +14,10 @@ from homeassistant.components.http import KEY_HASS, HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from .catalog import (
-    GARMIN_MANUFACTURER,
     get_device_definition,
-    parse_product_id,
     parse_serial_number,
     parse_software_version,
+    public_catalog_metadata,
     public_device_catalog,
 )
 from .const import DATA_STORE, DOMAIN, MAX_FIT_FILE_SIZE
@@ -63,10 +62,11 @@ def _safe_output_name(filename: Any, label: str) -> str:
 
 
 def _public_payload(store: ProfileStore) -> dict[str, Any]:
-    """Return profile state together with Garmin's built-in manual catalog."""
+    """Return profile state together with the bundled Garmin SDK catalog."""
     return {
         **store.public_payload(),
         "device_catalog": public_device_catalog(),
+        "catalog_meta": public_catalog_metadata(),
     }
 
 
@@ -78,7 +78,7 @@ def _profile_response(store: ProfileStore, profile: DeviceProfile) -> dict[str, 
 
 
 class ProfilesView(HomeAssistantView):
-    """List locally saved creator profiles and manual Garmin model data."""
+    """List locally saved creator profiles and Garmin SDK model data."""
 
     url = "/api/garmin_fit_device_changer/profiles"
     name = "api:garmin_fit_device_changer:profiles"
@@ -117,7 +117,7 @@ class ImportProfileView(HomeAssistantView):
 
 
 class ManualProfileView(HomeAssistantView):
-    """Create a profile from Garmin model data, optionally with full identity."""
+    """Create a profile from a device in the bundled Garmin FIT SDK catalog."""
 
     url = "/api/garmin_fit_device_changer/profiles/manual"
     name = "api:garmin_fit_device_changer:profiles:manual"
@@ -129,20 +129,8 @@ class ManualProfileView(HomeAssistantView):
             payload = await request.json()
             device_key = str(payload.get("device_key") or "").strip()
             definition = get_device_definition(device_key)
-
-            if device_key == "custom":
-                model_name = str(payload.get("model_name") or "").strip()
-                if not model_name:
-                    raise ValueError("Model name is required for a custom Garmin device.")
-                manufacturer = GARMIN_MANUFACTURER
-                product = parse_product_id(payload.get("product_id"))
-                default_label = model_name
-            else:
-                if definition is None:
-                    raise ValueError("Unknown Garmin device model.")
-                manufacturer = definition.manufacturer
-                product = definition.product
-                default_label = definition.label
+            if definition is None:
+                raise ValueError("Unknown Garmin device model.")
 
             identity_mode = str(payload.get("identity_mode") or "basic").strip().lower()
             if identity_mode not in ("basic", "full"):
@@ -155,12 +143,12 @@ class ManualProfileView(HomeAssistantView):
                 software_version = parse_software_version(payload.get("software_version"))
 
             identity = CreatorIdentity(
-                manufacturer=manufacturer,
-                product=product,
+                manufacturer=definition.manufacturer,
+                product=definition.product,
                 serial_number=serial_number,
                 software_version=software_version,
             )
-            label = str(payload.get("label") or default_label).strip()
+            label = str(payload.get("label") or definition.label).strip()
             store = _store(hass)
             profile = await store.async_upsert(
                 identity,
