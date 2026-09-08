@@ -57,6 +57,16 @@ class DeviceCatalogTests(unittest.TestCase):
         self.assertEqual(metadata["generated_at"], "2026-09-08")
         self.assertEqual(metadata["device_count"], len(catalog.GARMIN_DEVICE_CATALOG))
 
+    def test_polished_display_labels(self):
+        self.assertEqual(
+            catalog.get_device_definition("descent_g1").label,
+            "Garmin Descent G1",
+        )
+        self.assertEqual(
+            catalog.get_device_definition("d2airvenu").label,
+            "Garmin D2 Air / Venu",
+        )
+
     def test_no_arbitrary_product_id_entry(self):
         self.assertFalse(hasattr(catalog, "parse_product_id"))
 
