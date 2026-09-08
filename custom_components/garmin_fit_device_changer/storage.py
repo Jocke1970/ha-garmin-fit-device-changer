@@ -36,6 +36,15 @@ class DeviceProfile:
             software_version=self.software_version,
         )
 
+    @property
+    def is_supported(self) -> bool:
+        """Return whether this profile has a complete creator identity."""
+        return (
+            self.identity_mode == "full"
+            and self.serial_number is not None
+            and self.software_version is not None
+        )
+
     def to_storage(self) -> dict[str, Any]:
         """Serialize the full profile for HA local storage."""
         return {
@@ -60,13 +69,14 @@ class DeviceProfile:
             "software_version": format_software_version(self.software_version),
             "source": self.source,
             "identity_mode": self.identity_mode,
-            "is_full_identity": self.identity_mode == "full",
+            "is_full_identity": self.is_supported,
+            "is_supported": self.is_supported,
             "is_default": is_default,
         }
 
     @classmethod
     def from_storage(cls, data: dict[str, Any]) -> "DeviceProfile":
-        """Deserialize one stored profile, including M1 legacy data."""
+        """Deserialize one stored profile, including pre-release basic profiles."""
         serial_number = (
             int(data["serial_number"])
             if data.get("serial_number") is not None
@@ -180,10 +190,14 @@ class ProfileStore:
         source: str = "reference",
         identity_mode: Optional[str] = None,
     ) -> DeviceProfile:
-        """Add or update a creator profile."""
-        mode = identity_mode or ("full" if identity.serial_number is not None else "basic")
-        if mode not in ("basic", "full"):
-            raise ValueError(f"Unsupported identity mode: {mode}")
+        """Add or update a complete creator profile."""
+        mode = identity_mode or "full"
+        if mode != "full":
+            raise ValueError("Only full Garmin identity profiles are supported.")
+        if identity.serial_number is None or identity.software_version is None:
+            raise ValueError(
+                "Full Garmin identity requires both serial number and firmware."
+            )
 
         profile_id = _profile_id(identity)
         profile = DeviceProfile(
@@ -194,7 +208,7 @@ class ProfileStore:
             serial_number=identity.serial_number,
             software_version=identity.software_version,
             source=source,
-            identity_mode=mode,
+            identity_mode="full",
         )
         self._profiles[profile_id] = profile
 
