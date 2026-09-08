@@ -34,7 +34,7 @@ class DeviceCatalogTests(unittest.TestCase):
         self.assertEqual(catalog.get_device_definition("forerunner_970").product, 4565)
 
     def test_catalog_is_full_sdk_snapshot_not_small_curated_list(self):
-        self.assertGreater(len(catalog.GARMIN_DEVICE_CATALOG), 300)
+        self.assertEqual(len(catalog.GARMIN_DEVICE_CATALOG), 367)
         self.assertEqual(
             len({device.key for device in catalog.GARMIN_DEVICE_CATALOG}),
             len(catalog.GARMIN_DEVICE_CATALOG),
