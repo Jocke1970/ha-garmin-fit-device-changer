@@ -8,17 +8,14 @@ The patcher is intentionally surgical: it changes only creator identity fields t
 
 ## Device profiles
 
-Garmin Connect does not reliably identify a physical device from `manufacturer` + `product` alone. The most reliable creator identity also includes the device serial number and creator software version.
+Garmin Connect does not reliably identify a physical device from `manufacturer` + `product` alone. Testing showed that leaving the source activity's serial number/software in place can make Garmin Connect keep identifying the old physical device even after Product ID has been changed. Garmin FIT Device Changer therefore uses a **complete creator identity** for every supported target profile: manufacturer, product, serial number and firmware/software version.
 
-Garmin FIT Device Changer has exactly two ways to create a target device profile:
+There are exactly two ways to create a target device profile:
 
-1. **Reference FIT (recommended)** — import a genuine activity created by the real Garmin device. The FIT file itself is not stored; only the extracted creator profile is saved locally in Home Assistant.
-2. **Garmin FIT SDK catalog** — choose a Garmin device from the bundled catalog generated from Garmin's FIT SDK. No arbitrary Product ID entry is exposed in the released UI.
+1. **Reference FIT (recommended)** — import a genuine activity created by the real Garmin device. The FIT file itself is not stored; only its complete creator identity is saved locally in Home Assistant.
+2. **Garmin FIT SDK catalog** — choose a Garmin device from the bundled catalog generated from Garmin's FIT SDK, then enter the serial number and firmware version belonging to that specific device.
 
-When a device is chosen from the SDK catalog, select one of two identity modes:
-
-- **Full identity** — manufacturer + product + serial number + firmware version. This is the creator-identity method verified against Garmin Connect.
-- **Basic Garmin data** — manufacturer + product only. The source FIT serial number and software version are preserved. Garmin Connect may recognize the model without associating the activity with a specific physical Garmin device.
+Arbitrary Product ID entry and the earlier pre-release **Basic Garmin data** mode are not available in `v0.1.0`. A catalog-created profile must have the full physical-device identity before it can be used for patching.
 
 Creator-profile extraction has been tested with genuine FIT files from:
 
@@ -55,11 +52,12 @@ The generated file is development/release data only. Home Assistant never runs t
 
 - Home Assistant config-flow installation
 - Local creator-profile storage; device serial numbers are never committed to the repository
-- Import a device profile from a genuine reference FIT
+- Import a complete target-device identity from a genuine reference FIT
 - Choose a target model from a bundled Garmin FIT SDK catalog
-- Full identity and basic Garmin-data profile modes
+- Require serial number + firmware for SDK-catalog profiles
+- Reject legacy pre-release basic profiles for patching
 - fēnix 7 Pro becomes the preferred default when available
-- Target-device dropdown for FIT patching
+- Target-device dropdown and a final visual target check before patching
 - Patch `file_id` creator identity, `file_creator.software_version`, and creator `device_info` fields when those fields already exist
 - Recalculate FIT CRC
 - Byte-level safety verification that no unrelated bytes changed
@@ -119,27 +117,30 @@ title: Garmin FIT Device Changer
 
 The integration serves the JavaScript file, but the Lovelace resource itself must currently be added in Home Assistant.
 
+During pre-release testing, adding a version query such as `?v=0.1.0-m1.14` can be used to force a browser reload after replacing the card JavaScript.
+
 ## Workflow
 
 ### 1. Add a target device
 
 Open **Lägg till enhet / Add device** in the card and choose one of the two supported methods.
 
-**Reference FIT** is recommended when an untouched activity from the real Garmin device is available. Select the reference FIT and optionally set a display name, then import the profile.
+**Reference FIT** is recommended when an untouched activity from the real Garmin device is available. Select the reference FIT and optionally set a display name, then import the profile. The reference must contain a complete creator identity including serial number and software/firmware.
 
-If no reference FIT is available, select **SDK-katalog / SDK catalog**, choose the Garmin model, and then choose **Full identity** or **Basic Garmin data**. Product ID is supplied by the bundled SDK catalog and is not entered manually.
+If no reference FIT is available, select **SDK-katalog / SDK catalog**, choose the Garmin model, and enter the **serial number and firmware version from that same physical Garmin device**. Product ID is supplied by the bundled SDK catalog and is not entered manually.
 
-Full profiles store manufacturer, product, serial number, software version, source/mode and display label. Basic profiles store Garmin manufacturer/product and preserve the source activity's serial/software values at patch time.
+Changing the selected SDK model clears any serial number and firmware already entered, reducing the risk of accidentally combining identity data from two different devices.
 
 ### 2. Patch an activity
 
 1. Open **Enhetsprofiler / Device profiles** and choose the target Garmin device.
 2. Open **Patcha FIT-fil / Patch FIT file**.
 3. Select the FIT file to patch.
-4. Press **Patcha FIT / Patch FIT**.
-5. Review the creator fields that changed and the verification result.
-6. Download the newly generated FIT file.
-7. Import the patched file into Garmin Connect and verify the device attribution.
+4. Confirm the **Målenhet i patchad FIT / Target device in patched FIT** box.
+5. Press **Patcha FIT / Patch FIT**.
+6. Review the creator fields that changed and the verification result.
+7. Download the newly generated FIT file.
+8. Import the patched file into Garmin Connect and verify the device attribution.
 
 The original upload is never written back or replaced.
 
@@ -150,8 +151,8 @@ The integration refuses to patch when:
 - the FIT header or file CRC is invalid
 - the file is chained or contains extra FIT data after its CRC
 - compressed-timestamp FIT records are present (not supported safely in `v0.1.0`)
-- required `file_id.manufacturer` or `file_id.product` fields are missing
-- `file_id.serial_number` is missing when a full-identity profile needs to patch it
+- required `file_id.manufacturer`, `file_id.product`, or `file_id.serial_number` fields are missing
+- the selected target profile does not contain a complete serial number + firmware identity
 - an expected creator field has an unsupported byte size
 - byte-level verification finds any change outside the intended creator fields and trailing CRC
 
@@ -161,9 +162,11 @@ No FIT messages are inserted or removed in `v0.1.0`.
 
 Physical Garmin serial numbers are stored in Home Assistant's local `.storage` data for this integration. They are not placed in the repository, frontend source, or logs by design. The UI masks serial numbers except for their final four digits.
 
-## Upgrading from the pre-release `fit_device_patcher` test build
+## Upgrading from pre-release builds
 
 The integration domain was renamed before `v0.1.0` from `fit_device_patcher` to `garmin_fit_device_changer`. Remove the old custom-component folder/config entry and install the new integration. Existing locally saved profiles are automatically migrated from `.storage/fit_device_patcher.profiles` when the final integration first starts with an empty new profile store.
+
+Profiles created with the discontinued pre-release **Basic Garmin data** mode are kept visible so they can be removed, but they are marked unsupported and cannot be selected as a valid patch target. Recreate those devices from a genuine reference FIT or from the SDK catalog with the correct serial number and firmware.
 
 The old Lovelace resource URL/card type remains as a temporary compatibility alias for the M1 transition.
 
