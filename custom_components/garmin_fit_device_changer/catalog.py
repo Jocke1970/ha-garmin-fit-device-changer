@@ -36,10 +36,38 @@ class GarminDeviceDefinition:
         }
 
 
+def _polish_generated_label(label: str, sdk_name: str) -> str:
+    """Apply small branding/readability fixes to generated SDK labels."""
+    if sdk_name == "D2AIRVENU":
+        return "Garmin D2 Air / Venu"
+    if sdk_name == "LILY_ATHLETE":
+        return "Garmin Lily 2 Active"
+
+    replacements = (
+        (" MK ", " Mk"),
+        (" GEN ", " Gen "),
+        (" G 1", " G1"),
+        (" G 2", " G2"),
+        (" X 1", " X1"),
+        (" X 10", " X10"),
+        (" X 15", " X15"),
+        (" EXPLORE ", " Explore "),
+        (" 2MUSIC", " 2 Music"),
+        (" V 2", " v2"),
+        (" FIRST AVENGER", " First Avenger"),
+        (" DARTH VADER", " Darth Vader"),
+        (" REY", " Rey"),
+        (" Captain MARVEL", " Captain Marvel"),
+    )
+    for old, new in replacements:
+        label = label.replace(old, new)
+    return label
+
+
 GARMIN_DEVICE_CATALOG: tuple[GarminDeviceDefinition, ...] = tuple(
     GarminDeviceDefinition(
         key=key,
-        label=label,
+        label=_polish_generated_label(label, sdk_name),
         product=product,
         sdk_name=sdk_name,
     )
