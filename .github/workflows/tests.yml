@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -13,12 +16,17 @@ jobs:
         with:
           python-version: "3.13"
       - name: Generate Garmin FIT catalog snapshot
-        run: python scripts/update_garmin_catalog.py --output generated_catalog.py --generated-at 2026-09-08
-      - name: Upload generated catalog
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-garmin-catalog
-          path: generated_catalog.py
+        run: python scripts/update_garmin_catalog.py --generated-at 2026-09-08
+      - name: Commit generated catalog snapshot
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/garmin_fit_device_changer/generated_catalog.py
+          if ! git diff --cached --quiet; then
+            git commit -m "Generate Garmin FIT SDK catalog snapshot [skip ci]"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
       - name: Run FIT patcher tests
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
