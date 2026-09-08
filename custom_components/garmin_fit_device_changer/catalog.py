@@ -1,10 +1,17 @@
-"""Built-in Garmin device catalog for manual creator profiles."""
+"""Garmin device catalog helpers for manual creator profiles."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Optional
+
+from .generated_catalog import (
+    GARMIN_CATALOG_GENERATED_AT,
+    GARMIN_FIT_PROFILE_TAG,
+    GARMIN_FIT_PROFILE_VERSION,
+    GENERATED_DEVICE_CATALOG,
+)
 
 GARMIN_MANUFACTURER = 1
 
@@ -16,6 +23,7 @@ class GarminDeviceDefinition:
     key: str
     label: str
     product: int
+    sdk_name: str
     manufacturer: int = GARMIN_MANUFACTURER
 
     def to_public(self) -> dict[str, object]:
@@ -28,44 +36,44 @@ class GarminDeviceDefinition:
         }
 
 
-# Curated from Garmin's current FIT SDK GarminProduct enum. This first catalog
-# intentionally focuses on popular modern devices; it can grow independently
-# from the patcher engine.
-GARMIN_DEVICE_CATALOG: tuple[GarminDeviceDefinition, ...] = (
-    GarminDeviceDefinition("edge_1040", "Garmin Edge 1040", 3843),
-    GarminDeviceDefinition("edge_1050", "Garmin Edge 1050", 4440),
-    GarminDeviceDefinition("fenix_7s_pro", "Garmin fēnix 7S Pro", 4374),
-    GarminDeviceDefinition("fenix_7_pro", "Garmin fēnix 7 Pro", 4375),
-    GarminDeviceDefinition("fenix_7x_pro", "Garmin fēnix 7X Pro", 4376),
-    GarminDeviceDefinition("forerunner_965", "Garmin Forerunner 965", 4315),
-    GarminDeviceDefinition("forerunner_970", "Garmin Forerunner 970", 4565),
+GARMIN_DEVICE_CATALOG: tuple[GarminDeviceDefinition, ...] = tuple(
+    GarminDeviceDefinition(
+        key=key,
+        label=label,
+        product=product,
+        sdk_name=sdk_name,
+    )
+    for key, label, product, sdk_name in GENERATED_DEVICE_CATALOG
 )
 
 _CATALOG_BY_KEY = {device.key: device for device in GARMIN_DEVICE_CATALOG}
 
 
 def get_device_definition(key: str) -> Optional[GarminDeviceDefinition]:
-    """Return one built-in Garmin device definition."""
+    """Return one bundled Garmin SDK device definition."""
     return _CATALOG_BY_KEY.get(key)
 
 
 def public_device_catalog() -> list[dict[str, object]]:
-    """Return the built-in catalog sorted by display name."""
+    """Return the bundled SDK-derived catalog sorted by display name."""
     return [
         device.to_public()
-        for device in sorted(GARMIN_DEVICE_CATALOG, key=lambda item: item.label.lower())
+        for device in sorted(
+            GARMIN_DEVICE_CATALOG,
+            key=lambda item: (item.label.casefold(), item.product),
+        )
     ]
 
 
-def parse_product_id(value: object) -> int:
-    """Validate a Garmin FIT Product ID entered manually."""
-    text = str(value or "").strip()
-    if not text or not text.isdigit():
-        raise ValueError("Product ID must contain digits only.")
-    product = int(text)
-    if not 0 <= product <= 0xFFFF:
-        raise ValueError("Product ID must fit in a FIT uint16 field.")
-    return product
+def public_catalog_metadata() -> dict[str, object]:
+    """Return traceability metadata for the bundled Garmin FIT SDK snapshot."""
+    return {
+        "source": "Garmin FIT SDK",
+        "profile_version": GARMIN_FIT_PROFILE_VERSION,
+        "profile_tag": GARMIN_FIT_PROFILE_TAG,
+        "generated_at": GARMIN_CATALOG_GENERATED_AT,
+        "device_count": len(GARMIN_DEVICE_CATALOG),
+    }
 
 
 def parse_serial_number(value: object) -> int:
