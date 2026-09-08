@@ -102,6 +102,11 @@ class ImportProfileView(HomeAssistantView):
             payload = await request.json()
             raw = _decode_fit(payload.get("content_base64"))
             identity = await hass.async_add_executor_job(extract_creator_identity, raw)
+            if identity.serial_number is None or identity.software_version is None:
+                raise ValueError(
+                    "Reference FIT does not contain a complete Garmin creator identity "
+                    "with serial number and firmware."
+                )
             label = str(payload.get("label") or identity.default_label).strip()
             store = _store(hass)
             profile = await store.async_upsert(
@@ -117,7 +122,7 @@ class ImportProfileView(HomeAssistantView):
 
 
 class ManualProfileView(HomeAssistantView):
-    """Create a profile from a device in the bundled Garmin FIT SDK catalog."""
+    """Create a full-identity profile from the bundled Garmin FIT SDK catalog."""
 
     url = "/api/garmin_fit_device_changer/profiles/manual"
     name = "api:garmin_fit_device_changer:profiles:manual"
@@ -132,15 +137,15 @@ class ManualProfileView(HomeAssistantView):
             if definition is None:
                 raise ValueError("Unknown Garmin device model.")
 
-            identity_mode = str(payload.get("identity_mode") or "basic").strip().lower()
-            if identity_mode not in ("basic", "full"):
-                raise ValueError("Identity mode must be 'basic' or 'full'.")
+            requested_mode = str(payload.get("identity_mode") or "full").strip().lower()
+            if requested_mode != "full":
+                raise ValueError(
+                    "Only full Garmin identity profiles are supported. "
+                    "Serial number and firmware are required."
+                )
 
-            serial_number = None
-            software_version = None
-            if identity_mode == "full":
-                serial_number = parse_serial_number(payload.get("serial_number"))
-                software_version = parse_software_version(payload.get("software_version"))
+            serial_number = parse_serial_number(payload.get("serial_number"))
+            software_version = parse_software_version(payload.get("software_version"))
 
             identity = CreatorIdentity(
                 manufacturer=definition.manufacturer,
@@ -154,7 +159,7 @@ class ManualProfileView(HomeAssistantView):
                 identity,
                 label,
                 source="manual",
-                identity_mode=identity_mode,
+                identity_mode="full",
             )
         except (ValueError, TypeError) as exc:
             return _json_error(self, str(exc), HTTPStatus.BAD_REQUEST)
@@ -174,6 +179,19 @@ class DefaultProfileView(HomeAssistantView):
         payload = await request.json()
         profile_id = str(payload.get("profile_id") or "")
         store = _store(hass)
+        profile = store.get(profile_id)
+        if profile is None:
+            return _json_error(self, "Unknown profile.", HTTPStatus.NOT_FOUND)
+        if (
+            profile.identity_mode != "full"
+            or profile.serial_number is None
+            or profile.software_version is None
+        ):
+            return _json_error(
+                self,
+                "This pre-release basic profile is no longer supported. Delete it and recreate the device.",
+                HTTPStatus.BAD_REQUEST,
+            )
         if not await store.async_set_default(profile_id):
             return _json_error(self, "Unknown profile.", HTTPStatus.NOT_FOUND)
         return self.json(_public_payload(store))
@@ -213,25 +231,21 @@ class PatchView(HomeAssistantView):
             if profile is None:
                 return _json_error(self, "Unknown target profile.", HTTPStatus.NOT_FOUND)
 
-            raw = _decode_fit(payload.get("content_base64"))
-            patch_identity = profile.identity
-            if profile.identity_mode == "basic":
-                # Basic mode keeps the source FIT's physical creator identity
-                # while replacing only Garmin manufacturer/product model data.
-                source_identity = await hass.async_add_executor_job(
-                    extract_creator_identity, raw
-                )
-                patch_identity = CreatorIdentity(
-                    manufacturer=profile.manufacturer,
-                    product=profile.product,
-                    serial_number=source_identity.serial_number,
-                    software_version=source_identity.software_version,
+            if (
+                profile.identity_mode != "full"
+                or profile.serial_number is None
+                or profile.software_version is None
+            ):
+                raise ValueError(
+                    "This pre-release basic profile is no longer supported. "
+                    "Delete it and recreate the device from a reference FIT or the SDK catalog."
                 )
 
+            raw = _decode_fit(payload.get("content_base64"))
             patched, changes = await hass.async_add_executor_job(
                 patch_fit_bytes,
                 raw,
-                patch_identity,
+                profile.identity,
             )
         except (FitPatchError, ValueError, TypeError) as exc:
             return _json_error(self, str(exc), HTTPStatus.BAD_REQUEST)
