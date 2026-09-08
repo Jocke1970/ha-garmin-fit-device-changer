@@ -1,0 +1,14 @@
+{
+  "title": "Garmin FIT Device Changer",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Garmin FIT Device Changer",
+        "description": "Installera Garmin FIT Device Changer. Enhetsprofiler kan importeras från en äkta referens-FIT eller skapas manuellt från Garmins Product ID-data och sparas endast lokalt i Home Assistant."
+      }
+    },
+    "abort": {
+      "already_configured": "Garmin FIT Device Changer är redan konfigurerad."
+    }
+  }
+}
