@@ -28,7 +28,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertNotIn('<option value="basic"', CARD)
         self.assertIn('identity_mode: "full"', CARD)
         self.assertIn("legacyBasic", CARD)
-        self.assertIn("v0.1.0-m1.14", CARD)
+        self.assertIn('CARD_VERSION = "0.1.0-m1.14"', CARD)
 
 
 if __name__ == "__main__":
