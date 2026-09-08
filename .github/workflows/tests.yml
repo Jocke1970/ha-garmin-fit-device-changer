@@ -20,3 +20,11 @@ jobs:
           python -m py_compile scripts/update_garmin_catalog.py
       - name: Check Lovelace card JavaScript syntax
         run: node --check custom_components/garmin_fit_device_changer/www/garmin-fit-device-changer-card.js
+      - name: Upload clean Home Assistant test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: garmin-fit-device-changer-ha-test
+          path: |
+            custom_components/garmin_fit_device_changer
+            !custom_components/garmin_fit_device_changer/**/__pycache__/**
+            !custom_components/garmin_fit_device_changer/**/*.pyc
