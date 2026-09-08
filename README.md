@@ -33,7 +33,7 @@ A genuine reference FIT can also be used for a Garmin product outside the bundle
 
 The integration does not contact Garmin or GitHub at Home Assistant runtime. The device picker uses a local generated snapshot bundled with the integration.
 
-For `v0.1.0`, the snapshot is generated from Garmin FIT SDK `GarminProduct` profile **21.214.0Release**, dated **2026-09-08**. The generator includes relevant activity-recording devices — all Edge models and Garmin watch families — while excluding accessories such as heart-rate sensors, radar, scales, Edge Remote, and Descent T1/T2 transmitters.
+For `v0.1.0`, the snapshot is generated from Garmin FIT SDK `GarminProduct` profile **21.214.0Release**, dated **2026-09-08**. It currently contains **367** relevant SDK product entries. The generator includes all Edge bike computers plus Garmin watch families that can record activities, including regional Product ID variants. It excludes non-target accessories such as heart-rate sensors, radar, scales, Edge Remote, and Descent T1/T2 transmitters.
 
 The card footer shows the bundled FIT SDK profile version and snapshot date so the catalog source is visible without opening the repository.
 
