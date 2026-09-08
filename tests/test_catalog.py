@@ -1,26 +1,64 @@
 import importlib.util
 import sys
+import types
 import unittest
 from pathlib import Path
 
-CATALOG_PATH = Path(__file__).parents[1] / "custom_components" / "garmin_fit_device_changer" / "catalog.py"
-spec = importlib.util.spec_from_file_location("garmin_fit_device_changer_catalog", CATALOG_PATH)
+COMPONENT_DIR = (
+    Path(__file__).parents[1]
+    / "custom_components"
+    / "garmin_fit_device_changer"
+)
+PACKAGE = "garmin_fit_device_changer_catalog_test"
+package = types.ModuleType(PACKAGE)
+package.__path__ = [str(COMPONENT_DIR)]
+sys.modules[PACKAGE] = package
+
+spec = importlib.util.spec_from_file_location(
+    f"{PACKAGE}.catalog",
+    COMPONENT_DIR / "catalog.py",
+)
 catalog = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = catalog
 spec.loader.exec_module(catalog)
 
 
 class DeviceCatalogTests(unittest.TestCase):
-    def test_verified_product_ids(self):
+    def test_current_verified_product_ids(self):
         self.assertEqual(catalog.get_device_definition("edge_1040").product, 3843)
-        self.assertEqual(catalog.get_device_definition("fenix_7_pro").product, 4375)
+        self.assertEqual(catalog.get_device_definition("edge_850").product, 4634)
+        self.assertEqual(
+            catalog.get_device_definition("fenix_7_pro_solar").product,
+            4375,
+        )
+        self.assertEqual(catalog.get_device_definition("forerunner_970").product, 4565)
 
-    def test_parse_product_id(self):
-        self.assertEqual(catalog.parse_product_id("4634"), 4634)
-        with self.assertRaises(ValueError):
-            catalog.parse_product_id("46AB")
-        with self.assertRaises(ValueError):
-            catalog.parse_product_id("65536")
+    def test_catalog_is_full_sdk_snapshot_not_small_curated_list(self):
+        self.assertGreater(len(catalog.GARMIN_DEVICE_CATALOG), 300)
+        self.assertEqual(
+            len({device.key for device in catalog.GARMIN_DEVICE_CATALOG}),
+            len(catalog.GARMIN_DEVICE_CATALOG),
+        )
+        self.assertEqual(
+            len({device.product for device in catalog.GARMIN_DEVICE_CATALOG}),
+            len(catalog.GARMIN_DEVICE_CATALOG),
+        )
+
+    def test_accessories_are_excluded(self):
+        product_ids = {device.product for device in catalog.GARMIN_DEVICE_CATALOG}
+        self.assertNotIn(10014, product_ids)  # Edge Remote
+        self.assertNotIn(3143, product_ids)   # Descent T1 transmitter
+        self.assertNotIn(4442, product_ids)   # Descent T2 transmitter
+
+    def test_catalog_metadata(self):
+        metadata = catalog.public_catalog_metadata()
+        self.assertEqual(metadata["source"], "Garmin FIT SDK")
+        self.assertEqual(metadata["profile_version"], "21.214.0Release")
+        self.assertEqual(metadata["generated_at"], "2026-09-08")
+        self.assertEqual(metadata["device_count"], len(catalog.GARMIN_DEVICE_CATALOG))
+
+    def test_no_arbitrary_product_id_entry(self):
+        self.assertFalse(hasattr(catalog, "parse_product_id"))
 
     def test_parse_serial_number(self):
         self.assertEqual(catalog.parse_serial_number("3417487351"), 3417487351)
