@@ -12,6 +12,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Generate Garmin FIT catalog snapshot
+        run: python scripts/update_garmin_catalog.py --output generated_catalog.py --generated-at 2026-09-08
+      - name: Upload generated catalog
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-garmin-catalog
+          path: generated_catalog.py
       - name: Run FIT patcher tests
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
